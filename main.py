@@ -15,5 +15,6 @@ if __name__ == "__main__":
 
     tim_parser = TIMParser()
     events, rooms, features, students = tim_parser.parseInput(r.input_file)
+
     population = Population(events, rooms, features, students)
 

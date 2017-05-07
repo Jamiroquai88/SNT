@@ -6,15 +6,10 @@ class Students(object):
         self.students = []
 
     def __iter__(self):
-        self.current = 0
-        return self
-
-    def next(self):
-        if self.current >= len(self.students):
-            raise StopIteration
-        else:
-            self.current += 1
-            return self.students[self.current - 1]
+        current = 0
+        while current < len(self.students):
+            yield self.students[current]
+            current += 1
 
     def addStudent(self):
         self.students.append(Student(len(self.students)))
