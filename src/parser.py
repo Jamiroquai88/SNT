@@ -11,8 +11,8 @@ class TIMParser(object):
         self.inputFile = None
         self.outputFile = None
 
-    def parseInput(self, f):
-        self.inputFile = f
+    @staticmethod
+    def parseInput(f):
         with open(f) as file:
             lines = file.readlines()
         first_line = lines[0].split()
@@ -71,3 +71,10 @@ class TIMParser(object):
                 '[parseInput] Unexpected number of lines in input file!'
             )
         return events, rooms, features, students
+
+    @staticmethod
+    def dumpOutput(out_file, events):
+        f = open(out_file, 'w', 0)
+        for e in events:
+            f.write(str(e.timeslot) + ' ' + str(e.room.index) + '\r\n')
+        f.close()

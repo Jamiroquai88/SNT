@@ -11,10 +11,19 @@ from src.population import Population
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='University course timetabling problem.')
     parser.add_argument('-i', action='store', dest='input_file', type=str, required=True)
+    parser.add_argument('-o', action='store', dest='output_file', type=str, required=True)
     r = parser.parse_args()
 
     tim_parser = TIMParser()
     events, rooms, features, students = tim_parser.parseInput(r.input_file)
 
     population = Population(events, rooms, features, students)
+
+    best_solution = population.getBest()
+
+    tim_parser.dumpOutput(r.output_file, best_solution)
+
+    print 'lala'
+
+
 

@@ -19,6 +19,9 @@ class Rooms(object):
     def getLast(self):
         return self.rooms[-1]
 
+    def sortBySize(self):
+        return sorted(self.rooms, key=lambda x: x.size)
+
 
 class Room(object):
     def __init__(self, idx, size):
