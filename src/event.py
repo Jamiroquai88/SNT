@@ -1,5 +1,6 @@
 import os
 import sys
+import copy
 import random
 import itertools
 import numpy as np
@@ -13,6 +14,7 @@ class Events(object):
     def __init__(self, num):
         self.eventsNumber = num
         self.events = []
+        self.localSearchIters = 1000
 
     def __iter__(self):
         current = 0
@@ -36,156 +38,134 @@ class Events(object):
                 a.append(x)
         return a
 
-    def initTimeslots(self, ntimeslots, nrooms):
-        G = nx.Graph()
-        G.add_nodes_from(self.events)
-        for x, y in itertools.combinations(G.nodes(), 2):
-            nconflicts = len(set(x.students).intersection(y.students))
-            if nconflicts > 0:
-                G.add_edge(x, y, weight=nconflicts)
-        greedy_coloring = nx.coloring.greedy_color(
-            G, strategy=nx.coloring.strategy_random_sequential)
-        for key, value in greedy_coloring.items():
-            key.timeslot = value
+    def initTimeslots(self, ntimeslots):
+        events_copy = copy.copy(self.events)
+        for i in range(self.eventsNumber):
+            G = nx.Graph()
+            G.add_nodes_from(events_copy)
+            for x, y in itertools.combinations(G.nodes(), 2):
+                nconflicts = len(set(x.students).intersection(y.students))
+                if nconflicts > 0:
+                    G.add_edge(x, y, weight=nconflicts)
+            greedy_coloring = nx.coloring.greedy_color(G, strategy=nx.coloring.strategy_largest_first)
+            max_degree = max(greedy_coloring.values())
+            for x in greedy_coloring:
+                if greedy_coloring[x] == max_degree:
+                    x.timeslot = np.random.randint(0, ntimeslots)
+                    events_copy.remove(x)
+                    del G
+                    break
         return True
-        cluster_max = max(greedy_coloring.values())
-        if cluster_max >= ntimeslots:
-            print 'Warning: Too many timeslots!'
-            return False
-
-        rdict = {}
-        for e, t in greedy_coloring.items():
-            if t not in rdict.keys():
-                rdict[t] = []
-            rdict[t].append(e)
-
-        sorted_cluster = []
-        for key in rdict.keys():
-            sorted_cluster.append((key, len(rdict[key])))
-        sorted_cluster = sorted(sorted_cluster, key=lambda xx: xx[1], reverse=True)
-        if sorted_cluster[0][1] > 2 * nrooms:
-            return False
-        start_idx = ntimeslots - 1 - cluster_max
-        keep_clusters = []
-        split_clusters = {}
-        for i in range(len(sorted_cluster)):
-            if i > start_idx:
-                keep_clusters.append(sorted_cluster[i][0])
-            else:
-                split_clusters[sorted_cluster[i][0]] = sorted_cluster[i][1]
-        if sorted_cluster[start_idx][1] > nrooms:
-            return False
-        else:
-            for e, t in greedy_coloring.items():
-                if t in keep_clusters:
-                    e.timeslot = t
-                else:
-                    cluster_size = len(self.getByTimeslot(t))
-                    # print 'Cluster size:', cluster_size
-                    if cluster_size < split_clusters[t] / 2:
-                        e.timeslot = t
-                    else:
-                        e.timeslot = t + cluster_max + 1
-            return True
-
-    def initRooms(self, ntimeslots, rooms):
-        print 'init rooms'
         # G = nx.Graph()
         # G.add_nodes_from(self.events)
-        for i in range(ntimeslots):
-            events = self.getByTimeslot(i)
-            for x in events:
-                x.room = None
-            print 'Timeslot:', i, len(events)
-            # counter = 0
-            for x in itertools.permutations(range(len(events)), len(events)):
-                # counter += 1
-                # print counter
-                for y in x:
-                    # print y
-                    e = events[y]
-                    r = rooms.get(y)
-                    if set(e.features).issubset(r.features) and len(e.students) <= r.size:
-                        print 'Setting room:', events.index(e)
-                        e.room = r
-                    else:
-                        break
-            for x in events:
-                if x.room is None:
-                    print 'Room not initialized!', events.index(x)
-                    return False
-            print 'DONE', i
-        return True
-
-
-        rooms_len = len(rooms)
-        for x in self.events:
-            for r in random.sample(rooms, rooms_len):
-                rfound = False
-                for y in self.getByTimeslot(x.timeslot):
-                    if x != y:
-                        if x.room == y.room:
-                            rfound = True
-                if rfound:
-                    continue
-                else:
-                    if set(x.features).issubset(r.features) and len(x.students) <= r.size:
-                        x.room = r
-            if x.room is None:
-                print 'could not satisfy room'
-                return False
-        print 'rooms satisfied'
-        return True
-
-
-        # G2 = nx.Graph()
-        # G2.add_nodes_from(random.sample(self.events, self.eventsNumber))
-        # for x, y in itertools.combinations(G2.nodes(), 2):
-        #     if x.timeslot == y.timeslot:
-        #         G2.add_edge(x, y, weight=1)
-        # greedy_coloring = nx.coloring.greedy_color(
-        #     G2, strategy=nx.coloring.strategy_random_sequential, interchange=True)
-        # print greedy_coloring
-        # print max(greedy_coloring.values())
-        # for key, room in greedy_coloring.items():
-        #     if room < rooms_len:
-        #         key.room = room
-        #     else:
-        #         return False
-        # return True
-        # nx.draw(G2)
-        # plt.show()
-        # for e in self.events:
-        #     if e.room is None:
-        #         for r in random.sample(rooms, len(rooms)):
-        #             if set(e.features).issubset(r.features) and len(e.students) <= r.size:
-        #                 e.room = r
-        #                 break
-        #         if e.room is None:
-        #             print 'impossible to satisfy features'
-        #             return False
-        # for x, y in itertools.combinations(self.events, 2):
-        #     if x.timeslot == y.timeslot and x.room == y.room:
-        #         x.room, y.room = None, None
-        #         return False
-        #         cnt += 1
-        #         G2.add_edge(x.room, y.room)
-        # print nx.coloring.greedy_color(G2, strategy=nx.coloring.strategy_largest_first).values()
-        # nx.draw(G2)
-        # plt.show()
-        # for key, room in nx.coloring.greedy_color(G2, strategy=nx.coloring.strategy_largest_first).items():
-        #     print 'assigning room'
-        #     key.room = rooms[room % len(rooms) - 1]
-        # G = nx.Graph()
-        # G.add_nodes_from(rooms)
-        # print rooms
         # for x, y in itertools.combinations(G.nodes(), 2):
-        #     if x.room == y.room:
-        #         print 'adding edge'
-        #         G.add_edge(rooms[rooms.index(x.room)], rooms[rooms.index(y.room)], weight=1)
-        # print nx.coloring.greedy_color(G, strategy=nx.coloring.strategy_largest_first)
-        # nx.draw(G)
-        # plt.show()
+        #     nconflicts = len(set(x.students).intersection(y.students))
+        #     if nconflicts > 0:
+        #         G.add_edge(x, y, weight=nconflicts)
+        # greedy_coloring = nx.coloring.greedy_color(
+        #     G, strategy=nx.coloring.strategy_random_sequential)
+        # for key, value in greedy_coloring.items():
+        #     key.timeslot = value
+        # return True
+        # cluster_max = max(greedy_coloring.values())
+        # if cluster_max >= ntimeslots:
+        #     print 'Warning: Too many timeslots!'
+        #     return False
+        #
+        # rdict = {}
+        # for e, t in greedy_coloring.items():
+        #     if t not in rdict.keys():
+        #         rdict[t] = []
+        #     rdict[t].append(e)
+        #
+        # sorted_cluster = []
+        # for key in rdict.keys():
+        #     sorted_cluster.append((key, len(rdict[key])))
+        # sorted_cluster = sorted(sorted_cluster, key=lambda xx: xx[1], reverse=True)
+        # if sorted_cluster[0][1] > 2 * nrooms:
+        #     return False
+        # start_idx = ntimeslots - 1 - cluster_max
+        # keep_clusters = []
+        # split_clusters = {}
+        # for i in range(len(sorted_cluster)):
+        #     if i > start_idx:
+        #         keep_clusters.append(sorted_cluster[i][0])
+        #     else:
+        #         split_clusters[sorted_cluster[i][0]] = sorted_cluster[i][1]
+        # if sorted_cluster[start_idx][1] > nrooms:
+        #     return False
+        # else:
+        #     for e, t in greedy_coloring.items():
+        #         if t in keep_clusters:
+        #             e.timeslot = t
+        #         else:
+        #             cluster_size = len(self.getByTimeslot(t))
+        #             # print 'Cluster size:', cluster_size
+        #             if cluster_size < split_clusters[t] / 2:
+        #                 e.timeslot = t
+        #             else:
+        #                 e.timeslot = t + cluster_max + 1
+        #     return True
+
+    def initRooms(self, ntimeslots, rooms):
+        for i in range(ntimeslots):
+            G = nx.Graph()
+            G.add_nodes_from(self.getByTimeslot(i), bipartite=0)
+            G.add_nodes_from(rooms.rooms, bipartite=1)
+            for e in self.getByTimeslot(i):
+                for r in rooms:
+                    if set(e.features).issubset(r.features):
+                        G.add_edge(e, r)
+            bmm = nx.bipartite.maximum_matching(G)
+            for x in bmm.keys():
+                if isinstance(x, Event):
+                    x.room = bmm[x]
+            del G
+        return True
+
+    def localSearch(self, t):
+        iter_count = 0
+        while True:
+            if iter_count == self.localSearchIters:
+                return False
+            feasible_len = len(t.getFeasibles())
+            random_event = self.get(np.random.randint(0, self.eventsNumber))
+            if not t.findFeasible(random_event):
+                continue
+            while True:
+                e1 = self.get(np.random.randint(0, self.eventsNumber))
+                e2 = self.get(np.random.randint(0, self.eventsNumber))
+                e1.timeslot, e2.timeslot = e2.timeslot, e1.timeslot
+                e1.room, e2.room = e2.room, e1.room
+                if t.isFeasible(e1) and t.isFeasible(e2):
+                    break
+                else:
+                    e1.timeslot, e2.timeslot = e2.timeslot, e1.timeslot
+                    e1.room, e2.room = e2.room, e1.room
+            feas_len = len(t.getFeasibles())
+
+            if feas_len == self.eventsNumber:
+                return True
+            if feasible_len >= feas_len:
+                iter_count += 1
+            else:
+                iter_count = 0
+            print 'Number of feasible events:', feas_len, 'counter:', iter_count
+
+    # def tabuSearch(self, t, tabu_list):
+    #     ts_iter = 0
+    #     while True:
+    #         if ts_iter > self.tabuSearchIters:
+    #             break
+    #         print 'Number of feasible events:', len(t.getFeasibles())
+    #         unfesiable_events = t.getUnfeasibles()
+    #         tl = int(np.random.randint(0, 11) + 0.6 * len(unfesiable_events))
+    #         for x in tabu_list[:-tl]:
+    #             if not t.findFeasible(x):
+    #                 ts_iter += 1
+
+    def mutation(self, event):
+        pass
 
 
 class Event(object):

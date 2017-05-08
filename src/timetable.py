@@ -1,4 +1,5 @@
 import sys
+import random
 import itertools
 import numpy as np
 
@@ -10,28 +11,26 @@ class TimeTable(object):
         self.features = features
         self.students = students
         self.timeslots = 45
+        self.findFeasibleIters = 1000
 
     def init(self):
         print 'Initialiazing population ...'
         while True:
             if self.isFeasible():
                 print 'IS FEASIBLE!!!'
-                sys.exit(0)
+                return True
             else:
                 print 'Is not feasible!'
                 while True:
-                    if self.events.initTimeslots(self.timeslots, self.rooms.roomsNumber) \
-                            and self.events.initRooms(self.timeslots, self.rooms):
+                    self.events.initTimeslots(self.timeslots)
+                    self.events.initRooms(self.timeslots, self.rooms)
+                    if self.events.localSearch(self):
                         break
-                    # if its and ir:
-                    #     print 'found good clusters'
-                    #     print self.hardConstraint1()
-                        # if self.events.initRooms(self.rooms.rooms):
-                        #     print 'rooms INITED!!!'
-                        #     sys.exit(0)
-                        #     break
-                        # else:
-                        #     print 'could not init rooms!!!'
+
+    def mutation(self):
+        for e in self.events:
+            if random.uniform(0, 1) < 0.2:
+                self.events.mutation()
 
     def isFeasible(self, e=None):
         if e:
@@ -139,6 +138,8 @@ class TimeTable(object):
         return True
 
     def findFeasible(self, event):
+        if self.isFeasible(event):
+            return True
         old_t = event.timeslot
         old_r = event.room
         before = len(self.getFeasibles())
@@ -150,7 +151,7 @@ class TimeTable(object):
             if self.isFeasible(event) and before < len(self.getFeasibles()):
                 break
             else:
-                if cnt == 1000:
+                if cnt > self.findFeasibleIters:
                     event.timeslot = old_t
                     event.room = old_r
                     return False
