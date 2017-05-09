@@ -11,22 +11,16 @@ class Population(object):
         self.rooms = rooms
         self.features = features
         self.students = students
-        self.populationSize = 100
+        self.populationSize = 2
         self.timeTables = []
         self.bestSolution = None
 
         self.initPopulation()
         self.mutation()
-        self.localSearch()
+        self.randIterImprovement()
 
     def getBest(self):
-        sol = self.timeTables[self.bestSolution].events
-        if self.timeTables[self.bestSolution].isFeasible():
-            return sol
-        else:
-            raise PopulationException(
-                '[getBest] Solution is not feasible!'
-            )
+        return self.timeTables[self.bestSolution].bestSolutionObject
 
     def initPopulation(self):
         for i in range(self.populationSize):
@@ -39,8 +33,12 @@ class Population(object):
         for i in np.random.random_integers(0, self.populationSize - 1, size=self.populationSize / 5):
             self.timeTables[i].mutation()
 
-    def localSearch(self):
+    def randIterImprovement(self):
+        for x in self.timeTables:
+            x.randIterImprovement()
         sol_list = []
         for x in self.timeTables:
+            x.events = x.bestSolutionObject
             sol_list.append(x.solutionValue())
+            print 'Value of timetable', x.solutionValue()
         self.bestSolution = min(sol_list)

@@ -1,4 +1,5 @@
 import sys
+import copy
 import random
 import itertools
 import numpy as np
@@ -10,10 +11,13 @@ class TimeTable(object):
         self.rooms = rooms
         self.features = features
         self.students = students
+        self.bestSolution = float('inf')
+        self.bestSolutionObject = None
         self.timeslots = 45
         self.dailySlots = 9
         self.days = self.timeslots / self.dailySlots
         self.findFeasibleIters = 1000
+        self.randIterImprovementIters = 100
 
     def init(self):
         print 'Initialiazing population ...'
@@ -47,6 +51,12 @@ class TimeTable(object):
             if not self.isFeasible(x):
                 a.append(x)
         return a
+
+    def getRandEvent(self):
+        return self.events.get((np.random.randint(0, self.events.eventsNumber)))
+
+    def getRandTimeslot(self):
+        return np.random.randint(0, self.timeslots)
 
     def isFeasible(self, e=None):
         if e:
@@ -139,58 +149,94 @@ class TimeTable(object):
                     return False
         return True
 
-    def solutionValue(self):
-        return self.softConstraint1() + self.softConstraint2() + self.softConstraint3()
+    def solutionValue(self, e=None):
+        if e is None:
+            return self.softConstraint1() + self.softConstraint2() + self.softConstraint3()
+        else:
+            return self.softConstraint1(e) + self.softConstraint2(e) + self.softConstraint3(e)
 
-    def softConstraint1(self):
+    def softConstraint1(self, event=None):
         """ Count the number of occurences of a student having just one class on a day 
             (e.g. count 2 if a student has two days with only one class).
             
         """
         summ = 0
-        for s in self.students:
-            for day in range(self.days):
-                daily_sum = 0
-                for t in range(self.dailySlots):
-                    for e in self.events.getByTimeslot(day * self.dailySlots + t):
-                        if s in e.students:
-                            daily_sum += 1
-                if daily_sum == 1:
-                    summ += 1
+        if event is None:
+            for s in self.students:
+                for day in range(self.days):
+                    daily_sum = 0
+                    for t in range(self.dailySlots):
+                        for e in self.events.getByTimeslot(day * self.dailySlots + t):
+                            if s in e.students:
+                                daily_sum += 1
+                    if daily_sum == 1:
+                        summ += 1
+        else:
+            for s in self.students:
+                for day in range(self.days):
+                    daily_sum = 0
+                    for t in range(self.dailySlots):
+                        for e in self.events.getByTimeslot(day * self.dailySlots + t):
+                            if e == event and s in e.students:
+                                daily_sum += 1
+                    if daily_sum == 1:
+                        summ += 1
         return summ
 
-    def softConstraint2(self):
+    def softConstraint2(self, event=None):
         """ Count the number of occurrences of a student having more than two classes consecutively
             (3 consecutively scores 1, 4 consecutively scores 2, 5 consecutively scores 3, etc), classes at the end
             of the day followed by classes at the beginning of the next day do not count as consecutive.
           
         """
         summ = 0
-        for s in self.students:
-            for day in range(self.days):
-                cons_max = 0
-                cons = 0
-                for t in range(self.dailySlots):
-                    for e in self.events.getByTimeslot(day * self.dailySlots + t):
-                        if s in e.students:
+        if event is None:
+            for s in self.students:
+                for day in range(self.days):
+                    cons_sum = 0
+                    cons = 0
+                    for t in range(self.dailySlots):
+                        students = self.events.getStudentsBySlot(day * self.dailySlots + t)
+                        if s in students:
                             cons += 1
-                            if cons > cons_max:
-                                cons_max = cons
+                            if cons > 2:
+                                cons_sum += 1
                         else:
                             cons = 0
-                if cons_max > 2:
-                    summ += cons_max - 2
+                    summ += cons_sum
+        else:
+            for s in self.students:
+                for day in range(self.days):
+                    cons_sum = 0
+                    cons = 0
+                    for t in range(self.dailySlots):
+                        students = self.events.getStudentsBySlot(day * self.dailySlots + t)
+                        if s in students and s in event.students and event.timeslot == day * self.dailySlots + t:
+                            cons += 1
+                            if cons > 2:
+                                print 'student', s.index, 'day', day, 'slot', day * self.dailySlots + t
+                                cons_sum += 1
+                        else:
+                            cons = 0
         return summ
 
-    def softConstraint3(self):
+    def softConstraint3(self, event=None):
         """ Count the number of occurrences of a student having a class in the last timeslot of the day.
         
         """
         summ = 0
-        for s in self.students:
-            for day in range(self.days):
-                if s in self.events.getByTimeslot(day * self.dailySlots + self.dailySlots - 1):
-                    summ += 1
+        if event is None:
+            for s in self.students:
+                for day in range(self.days):
+                    for x in self.events.getByTimeslot(day * self.dailySlots + self.dailySlots - 1):
+                        if s in x.students:
+                            summ += 1
+        else:
+            for s in self.students:
+                for day in range(self.days):
+                    for x in self.events.getByTimeslot(day * self.dailySlots + self.dailySlots - 1):
+                        if x == event and s in x.students:
+                            summ += 1
         return summ
 
     def findFeasible(self, event):
@@ -213,6 +259,18 @@ class TimeTable(object):
                     return False
         return True
 
+    def findFeasibleTimeslot(self, event):
+        old_t = event.timeslot
+        cnt = 0
+        while True:
+            cnt += 1
+            event.timeslot = np.random.randint(0, self.timeslots)
+            if self.isFeasible():
+                return True
+            if cnt > self.findFeasibleIters:
+                event.timeslot = old_t
+                return False
+
     def findEarliestFeasible(self, event):
         old_t = event.timeslot
         old_r = event.room
@@ -226,5 +284,199 @@ class TimeTable(object):
                     event.timeslot = old_t
                     event.room = old_r
 
+    def randIterImprovement(self):
+        sol = self.solutionValue()
+        self.bestSolution = sol
+        self.bestSolutionObject = copy.deepcopy(self.events)
+        for i in range(self.randIterImprovementIters):
+            print 'Random iteration improvement, iteration:', i, 'from', self.randIterImprovementIters
+            tmp_sol = {}
+            tmp_obj = {}
+            for j in range(11):
+                if j == 0:
+                    val = self.N1()
+                elif j == 1:
+                    val = self.N2()
+                elif j == 2:
+                    val = self.N3()
+                elif j == 3:
+                    val = self.N4()
+                elif j == 4:
+                    val = self.N5()
+                elif j == 5:
+                    val = self.N6()
+                elif j == 6:
+                    val = self.N7()
+                elif j == 7:
+                    val = self.N8()
+                elif j == 8:
+                    val = self.N9()
+                elif j == 9:
+                    val = self.N10()
+                else:
+                    val = self.N11()
+                tmp_sol[val] = j
+                tmp_obj[val] = copy.deepcopy(self.events)
+            sol_star = min(tmp_sol.keys())
+            if sol_star < self.bestSolution:
+                self.bestSolution = sol_star
+                self.bestSolutionObject = copy.deepcopy(tmp_obj[sol_star])
+                self.events = tmp_obj[sol_star]
+                print 'Value of this found solution', self.solutionValue()
+            else:
+                delta = sol_star - sol
+                if random.uniform(0, 1) < np.exp(delta):
+                    sol = sol_star
 
+    def N1(self):
+        """ Select two courses at random and swap timeslots. 
+        
+        """
+        # print 'Executing N1'
+        e1 = self.getRandEvent()
+        e2 = self.getRandEvent()
+        e1.timeslot, e2.timeslot = e2.timeslot, e1.timeslot
+        if not self.isFeasible():
+            e1.timeslot, e2.timeslot = e2.timeslot, e1.timeslot
+        return self.solutionValue()
 
+    def N2(self):
+        """ Choose a single course at random and move to a new random feasible timeslot. 
+        
+        """
+        # print 'Executing N2'
+        e = self.getRandEvent()
+        et = e.timeslot
+        if not self.findFeasibleTimeslot(e):
+            e.timeslot = et
+        return self.solutionValue()
+
+    def N3(self):
+        """ Select two timeslots at random and simply swap all the courses in
+            one timeslot with all the courses in the other timeslot. 
+            
+        """
+        # print 'Executing N3'
+        t1 = self.getRandTimeslot()
+        t2 = self.getRandTimeslot()
+        e1 = self.events.getByTimeslot(t1)
+        e2 = self.events.getByTimeslot(t2)
+        for e in e1:
+            e.timeslot = t2
+        for e in e2:
+            e.timeslot = t1
+        if not self.isFeasible():
+            for e in e1:
+                e.timeslot = t1
+            for e in e2:
+                e.timeslot = t2
+        return self.solutionValue()
+
+    def N4(self):
+        """ Take 2 timeslots (selected at random), say ti and tj (where j>i) where
+            the timeslots are ordered t1, t2, ... t45. Take all the exams in ti and
+            allocate them to tj. Now take the exams that were in tj and allocate
+            them to tj-1. Then allocate those that were in tj-1 to tj-2 and so on until
+            we allocate those that were in ti+1 to ti and terminate the process. 
+            
+        """
+        # print 'Executing N4'
+        tmp = copy.deepcopy(self.events)
+        while True:
+            t1 = self.getRandTimeslot()
+            t2 = self.getRandTimeslot()
+            if t1 == t2:
+                continue
+            else:
+                j = max([t1, t2])
+                i = min([t1, t2])
+                for x in self.events.getByTimeslot(j):
+                    x.timeslot = i
+                while i < j:
+                    for x in self.events.getByTimeslot(j - 1):
+                        x.timeslot = j
+                    j -= 1
+            if self.isFeasible():
+                return self.solutionValue()
+            else:
+                self.events = tmp
+                return self.solutionValue()
+
+    def N5(self):
+        """ Move the highest penalty course from a random 10% selection of the
+            courses to a random feasible timeslot. 
+            
+        """
+        # print 'Executing N5'
+        val_dict = {}
+        for e in self.events:
+            val_dict[self.solutionValue(e)] = e
+        self.findFeasible(val_dict[max(val_dict.keys())])
+        return self.solutionValue()
+
+    def N6(self):
+        """ Carry out the same process as in N5 but with 20% of the courses. 
+        
+        """
+        # print 'Executing N6'
+        n = self.events.eventsNumber
+        for i in np.random.random_integers(0, n - 1, size=n / 5):
+            self.N5()
+        return self.solutionValue()
+
+    def N7(self):
+        """ Move the highest penalty course from a random 10% selection of the
+            courses to a new feasible timeslot which can generate the lowest
+            penalty cost. 
+        
+        """
+        # print 'Executing N7'
+        while True:
+            val_dict = {}
+            for e in self.events:
+                val_dict[self.solutionValue(e)] = e
+            e1 = val_dict[max(val_dict.keys())]
+            e2 = val_dict[min(val_dict.keys())]
+            e1.timeslot, e2.timeslot = e2.timeslot, e1.timeslot
+            if self.isFeasible():
+                return self.solutionValue()
+            else:
+                e1.timeslot, e2.timeslot = e2.timeslot, e1.timeslot
+                return max(val_dict.keys())
+
+    def N8(self):
+        """ Carry out the same process as in N7 but with 20% of the courses.
+        
+        """
+        # print 'Executing N8'
+        n = self.events.eventsNumber
+        for i in np.random.random_integers(0, n - 1, size=n / 5):
+            self.N7()
+        return self.solutionValue()
+
+    def N9(self):
+        """ Select one course at random, select a timeslot at random (distinct
+            from the one that was assigned to the selected course) and then
+            apply the kempe chain from Thompson and Dowsland (1996).
+        
+        """
+        # print 'Executing N9'
+        return self.solutionValue()
+
+    def N10(self):
+        """ This is the same as N9 except the highest penalty course from 5%
+            selection of the courses is selected at random. 
+        
+        """
+        # print 'Executing N10'
+        return self.solutionValue()
+
+    def N11(self):
+        """ Carry out the same process as in N9 but with 20% of the courses. 
+        
+        """
+        # print 'Executing N11'
+        n = self.events.eventsNumber
+        for i in np.random.random_integers(0, n - 1, size=n / 5):
+            self.N9()
+        return self.solutionValue()

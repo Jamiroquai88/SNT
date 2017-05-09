@@ -38,6 +38,14 @@ class Events(object):
                 a.append(x)
         return a
 
+    def getStudentsBySlot(self, timeslot):
+        a = self.getByTimeslot(timeslot)
+        b = set()
+        for x in a:
+            for s in x.students:
+                b.add(s)
+        return list(b)
+
     def initTimeslots(self, ntimeslots):
         events_copy = copy.copy(self.events)
         for i in range(self.eventsNumber):
