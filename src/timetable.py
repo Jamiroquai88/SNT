@@ -1,4 +1,3 @@
-import copy
 import random
 import itertools
 import numpy as np
@@ -21,6 +20,17 @@ class TimeTable(object):
         self.days = self.timeslots / self.dailySlots
         self.findFeasibleIters = 1000
         self.randIterImprovementIters = 20000
+
+    def loadInitialSolution(self, f):
+        with open(f) as fd:
+            lines = fd.readlines()
+        for i in range(len(lines)):
+            t = int(lines[i].split()[0])
+            r = self.rooms.getByIndex(int(lines[i].split()[1]))
+            self.events[i].timeslot = t
+            self.events[i].room = r
+
+
 
     def init(self):
         print 'Initialiazing population ...'
@@ -355,8 +365,7 @@ class TimeTable(object):
                     sol = sol_star
                 else:
                     self.setState(self.bestSolutionObject)
-            print 'Value of this found solution', self.solutionValue()
-            # TIMParser.dumpOutput('datasets/example_02.sln', self.bestSolutionObject)
+            print 'Value of this solution', self.solutionValue()
             print '===================================================================================================='
 
     def N1(self):
@@ -437,20 +446,22 @@ class TimeTable(object):
             courses to a random feasible timeslot. 
 
         """
-        val_dict = {}
-        for e in self.events:
-            val_dict[self.solutionValue(e)] = e
-        self.findFeasible(val_dict[max(val_dict.keys())], hard=False)
-        return self.solutionValue()
+        # val_dict = {}
+        # for e in self.events:
+        #     val_dict[self.solutionValue(e)] = e
+        # self.findFeasible(val_dict[max(val_dict.keys())], hard=False)
+        # return self.solutionValue()
+        return float('inf')
 
     def N6(self):
         """ Carry out the same process as in N5 but with 20% of the courses. 
 
         """
-        n = self.events.eventsNumber
-        for i in np.random.random_integers(0, n - 1, size=n / 5):
-            self.N5()
-        return self.solutionValue()
+        # n = self.events.eventsNumber
+        # for i in np.random.random_integers(0, n - 1, size=n / 5):
+        #     self.N5()
+        # return self.solutionValue()
+        return float('inf')
 
     def N7(self):
         """ Move the highest penalty course from a random 10% selection of the
@@ -458,18 +469,19 @@ class TimeTable(object):
             penalty cost. 
 
         """
-        while True:
-            val_dict = {}
-            for e in self.events:
-                val_dict[self.solutionValue(e)] = e
-            e1 = val_dict[max(val_dict.keys())]
-            e2 = val_dict[min(val_dict.keys())]
-            e1.timeslot, e2.timeslot = e2.timeslot, e1.timeslot
-            if self.isFeasible():
-                return self.solutionValue()
-            else:
-                e1.timeslot, e2.timeslot = e2.timeslot, e1.timeslot
-                return max(val_dict.keys())
+        # while True:
+        #     val_dict = {}
+        #     for e in self.events:
+        #         val_dict[self.solutionValue(e)] = e
+        #     e1 = val_dict[max(val_dict.keys())]
+        #     e2 = val_dict[min(val_dict.keys())]
+        #     e1.timeslot, e2.timeslot = e2.timeslot, e1.timeslot
+        #     if self.isFeasible():
+        #         return self.solutionValue()
+        #     else:
+        #         e1.timeslot, e2.timeslot = e2.timeslot, e1.timeslot
+        #         return max(val_dict.keys())
+        return float('inf')
 
     def N8(self):
         """ Carry out the same process as in N7 but with 20% of the courses.

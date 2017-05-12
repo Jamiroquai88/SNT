@@ -16,6 +16,12 @@ class Events(object):
             yield self.events[current]
             current += 1
 
+    def __getitem__(self, key):
+        return self.get(key)
+
+    def __setitem__(self, key, value):
+        self.events[key] = value
+
     def addEvent(self):
         self.events.append(Event(len(self.events)))
 

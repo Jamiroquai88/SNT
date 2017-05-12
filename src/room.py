@@ -19,6 +19,11 @@ class Rooms(object):
     def getLast(self):
         return self.rooms[-1]
 
+    def getByIndex(self, idx):
+        for r in self.rooms:
+            if r.index == idx:
+                return r
+
     def sortBySize(self):
         return sorted(self.rooms, key=lambda x: x.size)
 

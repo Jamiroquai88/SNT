@@ -2,8 +2,6 @@ import numpy as np
 
 from src.timetable import TimeTable
 
-from src.user_exceptions import PopulationException
-
 
 class Population(object):
     def __init__(self, events, rooms, features, students):
@@ -32,10 +30,16 @@ class Population(object):
         self.bestSolution = sol_list.index(min(sol_list))
 
     def initPopulation(self):
-        for i in range(self.populationSize):
-            t = TimeTable(self.events, self.rooms, self.features, self.students)
-            t.init()
-            self.timeTables.append(t)
+        t1 = TimeTable(self.events, self.rooms, self.features, self.students)
+        t1.loadInitialSolution('solutions/small_1__1.sln')
+        self.timeTables.append(t1)
+        t2 = TimeTable(self.events, self.rooms, self.features, self.students)
+        t2.loadInitialSolution('solutions/small_1__2.sln')
+        self.timeTables.append(t2)
+        # for i in range(self.populationSize):
+        #     t = TimeTable(self.events, self.rooms, self.features, self.students)
+        #     t.init()
+        #     self.timeTables.append(t)
         print 'Population inited, size:', self.populationSize
 
     def mutation(self):
