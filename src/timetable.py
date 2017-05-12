@@ -33,10 +33,8 @@ class TimeTable(object):
 
 
     def init(self):
-        print 'Initialiazing population ...'
         while True:
             if self.isFeasible():
-                print 'Timetable is feasible!'
                 return True
             else:
                 # print 'Is not feasible!'

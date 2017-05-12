@@ -8,7 +8,7 @@ class Events(object):
     def __init__(self, num):
         self.eventsNumber = num
         self.events = []
-        self.localSearchIters = 10
+        self.localSearchIters = 1000
 
     def __iter__(self):
         current = 0
