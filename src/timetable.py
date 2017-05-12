@@ -1,8 +1,11 @@
-import sys
 import copy
 import random
 import itertools
 import numpy as np
+
+from src.parser import TIMParser
+
+from src.user_exceptions import TimeTableException
 
 
 class TimeTable(object):
@@ -17,20 +20,22 @@ class TimeTable(object):
         self.dailySlots = 9
         self.days = self.timeslots / self.dailySlots
         self.findFeasibleIters = 1000
-        self.randIterImprovementIters = 100
+        self.randIterImprovementIters = 20000
 
     def init(self):
         print 'Initialiazing population ...'
         while True:
             if self.isFeasible():
-                print 'IS FEASIBLE!!!'
+                print 'Timetable is feasible!'
                 return True
             else:
                 # print 'Is not feasible!'
-                # while True:
-                self.events.initTimeslots(self.timeslots)
-                self.events.initRooms(self.timeslots, self.rooms)
-                self.events.localSearch(self)
+                while True:
+                    self.events.initTimeslots(self.timeslots)
+                    self.events.initRooms(self.timeslots, self.rooms)
+                    self.events.localSearch(self)
+                    if self.isFeasible():
+                        break
                 return True
 
     def mutation(self):
@@ -181,6 +186,7 @@ class TimeTable(object):
                                 daily_sum += 1
                     if daily_sum == 1:
                         summ += 1
+        # print 'Penalty for students having single events on a day =', summ
         return summ
 
     def softConstraint2(self, event=None):
@@ -218,6 +224,7 @@ class TimeTable(object):
                                 cons_sum += 1
                         else:
                             cons = 0
+        # print 'Penalty for students having three or more events in a row =', summ
         return summ
 
     def softConstraint3(self, event=None):
@@ -226,21 +233,19 @@ class TimeTable(object):
         """
         summ = 0
         if event is None:
-            for s in self.students:
-                for day in range(self.days):
-                    for x in self.events.getByTimeslot(day * self.dailySlots + self.dailySlots - 1):
-                        if s in x.students:
-                            summ += 1
+            for day in range(self.days):
+                for x in self.events.getByTimeslot(day * self.dailySlots + self.dailySlots - 1):
+                    summ += len(x.students)
         else:
-            for s in self.students:
-                for day in range(self.days):
-                    for x in self.events.getByTimeslot(day * self.dailySlots + self.dailySlots - 1):
-                        if x == event and s in x.students:
-                            summ += 1
+            for day in range(self.days):
+                for x in self.events.getByTimeslot(day * self.dailySlots + self.dailySlots - 1):
+                    if x == event:
+                        summ += len(x.students)
+        # print 'Penalty for students having end of day events =', summ
         return summ
 
-    def findFeasible(self, event):
-        if self.isFeasible(event):
+    def findFeasible(self, event, hard=True):
+        if self.isFeasible(event) and hard:
             return True
         old_t = event.timeslot
         old_r = event.room
@@ -284,15 +289,28 @@ class TimeTable(object):
                     event.timeslot = old_t
                     event.room = old_r
 
+    def getState(self):
+        states = []
+        for e in self.events:
+            states.append([e.timeslot, e.room.index])
+        return states
+
+    def setState(self, state):
+        for i in range(len(state)):
+            e = self.events.get(i)
+            e.timeslot, e.room = state[i][0], self.rooms.get(state[i][1])
+
     def randIterImprovement(self):
         sol = self.solutionValue()
         self.bestSolution = sol
-        self.bestSolutionObject = copy.deepcopy(self.events)
+        self.bestSolutionObject = self.getState()
         for i in range(self.randIterImprovementIters):
             print 'Random iteration improvement, iteration:', i, 'from', self.randIterImprovementIters
-            tmp_sol = {}
-            tmp_obj = {}
+            tmp_state = self.getState()
+            tmp_sol_dict = {}
+            tmp_obj_dict = {}
             for j in range(11):
+                self.setState(tmp_state)
                 if j == 0:
                     val = self.N1()
                 elif j == 1:
@@ -313,24 +331,37 @@ class TimeTable(object):
                     val = self.N9()
                 elif j == 9:
                     val = self.N10()
-                else:
+                elif j == 10:
                     val = self.N11()
-                tmp_sol[val] = j
-                tmp_obj[val] = copy.deepcopy(self.events)
-            sol_star = min(tmp_sol.keys())
+                else:
+                    raise TimeTableException(
+                        '[randIterImprovement] Unexpected method!'
+                    )
+                tmp_sol_dict[val] = j
+                tmp_obj_dict[val] = self.getState()
+            sol_star = min(tmp_sol_dict.keys())
             if sol_star < self.bestSolution:
                 self.bestSolution = sol_star
-                self.bestSolutionObject = copy.deepcopy(tmp_obj[sol_star])
-                self.events = tmp_obj[sol_star]
-                print 'Value of this found solution', self.solutionValue()
+                self.bestSolutionObject = tmp_obj_dict[sol_star]
+                self.setState(self.bestSolutionObject)
+                if sol_star == 0:
+                    TIMParser.dumpOutput('datasets/example_02.sln', self.bestSolutionObject)
+                    return 0
+                sol = sol_star
             else:
                 delta = sol_star - sol
-                if random.uniform(0, 1) < np.exp(delta):
+                if random.uniform(0, 1) < np.exp(-delta):
+                    self.setState(tmp_obj_dict[sol_star])
                     sol = sol_star
+                else:
+                    self.setState(self.bestSolutionObject)
+            print 'Value of this found solution', self.solutionValue()
+            # TIMParser.dumpOutput('datasets/example_02.sln', self.bestSolutionObject)
+            print '===================================================================================================='
 
     def N1(self):
         """ Select two courses at random and swap timeslots. 
-        
+
         """
         # print 'Executing N1'
         e1 = self.getRandEvent()
@@ -342,7 +373,7 @@ class TimeTable(object):
 
     def N2(self):
         """ Choose a single course at random and move to a new random feasible timeslot. 
-        
+
         """
         # print 'Executing N2'
         e = self.getRandEvent()
@@ -354,7 +385,7 @@ class TimeTable(object):
     def N3(self):
         """ Select two timeslots at random and simply swap all the courses in
             one timeslot with all the courses in the other timeslot. 
-            
+
         """
         # print 'Executing N3'
         t1 = self.getRandTimeslot()
@@ -378,10 +409,9 @@ class TimeTable(object):
             allocate them to tj. Now take the exams that were in tj and allocate
             them to tj-1. Then allocate those that were in tj-1 to tj-2 and so on until
             we allocate those that were in ti+1 to ti and terminate the process. 
-            
+
         """
-        # print 'Executing N4'
-        tmp = copy.deepcopy(self.events)
+        state = self.getState()
         while True:
             t1 = self.getRandTimeslot()
             t2 = self.getRandTimeslot()
@@ -399,26 +429,24 @@ class TimeTable(object):
             if self.isFeasible():
                 return self.solutionValue()
             else:
-                self.events = tmp
+                self.setState(state)
                 return self.solutionValue()
 
     def N5(self):
         """ Move the highest penalty course from a random 10% selection of the
             courses to a random feasible timeslot. 
-            
+
         """
-        # print 'Executing N5'
         val_dict = {}
         for e in self.events:
             val_dict[self.solutionValue(e)] = e
-        self.findFeasible(val_dict[max(val_dict.keys())])
+        self.findFeasible(val_dict[max(val_dict.keys())], hard=False)
         return self.solutionValue()
 
     def N6(self):
         """ Carry out the same process as in N5 but with 20% of the courses. 
-        
+
         """
-        # print 'Executing N6'
         n = self.events.eventsNumber
         for i in np.random.random_integers(0, n - 1, size=n / 5):
             self.N5()
@@ -428,9 +456,8 @@ class TimeTable(object):
         """ Move the highest penalty course from a random 10% selection of the
             courses to a new feasible timeslot which can generate the lowest
             penalty cost. 
-        
+
         """
-        # print 'Executing N7'
         while True:
             val_dict = {}
             for e in self.events:
@@ -446,37 +473,41 @@ class TimeTable(object):
 
     def N8(self):
         """ Carry out the same process as in N7 but with 20% of the courses.
-        
+
         """
         # print 'Executing N8'
-        n = self.events.eventsNumber
-        for i in np.random.random_integers(0, n - 1, size=n / 5):
-            self.N7()
-        return self.solutionValue()
+        # n = self.events.eventsNumber
+        # for i in np.random.random_integers(0, n - 1, size=n / 5):
+        #     self.N7()
+        # return self.solutionValue()
+        return float('inf')
 
     def N9(self):
         """ Select one course at random, select a timeslot at random (distinct
             from the one that was assigned to the selected course) and then
             apply the kempe chain from Thompson and Dowsland (1996).
-        
+
         """
         # print 'Executing N9'
-        return self.solutionValue()
+        # return self.solutionValue()
+        return float('inf')
 
     def N10(self):
         """ This is the same as N9 except the highest penalty course from 5%
             selection of the courses is selected at random. 
-        
+
         """
         # print 'Executing N10'
-        return self.solutionValue()
+        # return self.solutionValue()
+        return float('inf')
 
     def N11(self):
         """ Carry out the same process as in N9 but with 20% of the courses. 
-        
+
         """
         # print 'Executing N11'
-        n = self.events.eventsNumber
-        for i in np.random.random_integers(0, n - 1, size=n / 5):
-            self.N9()
-        return self.solutionValue()
+        # n = self.events.eventsNumber
+        # for i in np.random.random_integers(0, n - 1, size=n / 5):
+        #     self.N9()
+        # return self.solutionValue()
+        return float('inf')

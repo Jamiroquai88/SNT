@@ -76,5 +76,5 @@ class TIMParser(object):
     def dumpOutput(out_file, events):
         f = open(out_file, 'w', 0)
         for e in events:
-            f.write(str(e.timeslot) + ' ' + str(e.room.index) + '\r\n')
+            f.write(str(e[0]) + ' ' + str(e[1]) + '\r\n')
         f.close()

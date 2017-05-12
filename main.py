@@ -24,6 +24,3 @@ if __name__ == "__main__":
     tim_parser.dumpOutput(r.output_file, best_solution)
 
     print 'lala'
-
-
-

@@ -1,20 +1,14 @@
-import os
-import sys
 import copy
-import random
 import itertools
 import numpy as np
 import networkx as nx
-import matplotlib.pyplot as plt
-
-from src.user_exceptions import EventsException
 
 
 class Events(object):
     def __init__(self, num):
         self.eventsNumber = num
         self.events = []
-        self.localSearchIters = 1000
+        self.localSearchIters = 10
 
     def __iter__(self):
         current = 0
@@ -64,56 +58,6 @@ class Events(object):
                     del G
                     break
         return True
-        # G = nx.Graph()
-        # G.add_nodes_from(self.events)
-        # for x, y in itertools.combinations(G.nodes(), 2):
-        #     nconflicts = len(set(x.students).intersection(y.students))
-        #     if nconflicts > 0:
-        #         G.add_edge(x, y, weight=nconflicts)
-        # greedy_coloring = nx.coloring.greedy_color(
-        #     G, strategy=nx.coloring.strategy_random_sequential)
-        # for key, value in greedy_coloring.items():
-        #     key.timeslot = value
-        # return True
-        # cluster_max = max(greedy_coloring.values())
-        # if cluster_max >= ntimeslots:
-        #     print 'Warning: Too many timeslots!'
-        #     return False
-        #
-        # rdict = {}
-        # for e, t in greedy_coloring.items():
-        #     if t not in rdict.keys():
-        #         rdict[t] = []
-        #     rdict[t].append(e)
-        #
-        # sorted_cluster = []
-        # for key in rdict.keys():
-        #     sorted_cluster.append((key, len(rdict[key])))
-        # sorted_cluster = sorted(sorted_cluster, key=lambda xx: xx[1], reverse=True)
-        # if sorted_cluster[0][1] > 2 * nrooms:
-        #     return False
-        # start_idx = ntimeslots - 1 - cluster_max
-        # keep_clusters = []
-        # split_clusters = {}
-        # for i in range(len(sorted_cluster)):
-        #     if i > start_idx:
-        #         keep_clusters.append(sorted_cluster[i][0])
-        #     else:
-        #         split_clusters[sorted_cluster[i][0]] = sorted_cluster[i][1]
-        # if sorted_cluster[start_idx][1] > nrooms:
-        #     return False
-        # else:
-        #     for e, t in greedy_coloring.items():
-        #         if t in keep_clusters:
-        #             e.timeslot = t
-        #         else:
-        #             cluster_size = len(self.getByTimeslot(t))
-        #             # print 'Cluster size:', cluster_size
-        #             if cluster_size < split_clusters[t] / 2:
-        #                 e.timeslot = t
-        #             else:
-        #                 e.timeslot = t + cluster_max + 1
-        #     return True
 
     def initRooms(self, ntimeslots, rooms):
         for i in range(ntimeslots):
@@ -159,18 +103,6 @@ class Events(object):
             else:
                 iter_count = 0
             print 'Number of feasible events:', feas_len, 'counter:', iter_count
-
-    # def tabuSearch(self, t, tabu_list):
-    #     ts_iter = 0
-    #     while True:
-    #         if ts_iter > self.tabuSearchIters:
-    #             break
-    #         print 'Number of feasible events:', len(t.getFeasibles())
-    #         unfesiable_events = t.getUnfeasibles()
-    #         tl = int(np.random.randint(0, 11) + 0.6 * len(unfesiable_events))
-    #         for x in tabu_list[:-tl]:
-    #             if not t.findFeasible(x):
-    #                 ts_iter += 1
 
     def mutation(self, event):
         pass

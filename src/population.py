@@ -20,7 +20,16 @@ class Population(object):
         self.randIterImprovement()
 
     def getBest(self):
+        if self.bestSolution is None:
+            self.setBest()
         return self.timeTables[self.bestSolution].bestSolutionObject
+
+    def setBest(self):
+        sol_list = []
+        for x in self.timeTables:
+            x.setState(x.bestSolutionObject)
+            sol_list.append(x.solutionValue())
+        self.bestSolution = sol_list.index(min(sol_list))
 
     def initPopulation(self):
         for i in range(self.populationSize):
@@ -36,9 +45,4 @@ class Population(object):
     def randIterImprovement(self):
         for x in self.timeTables:
             x.randIterImprovement()
-        sol_list = []
-        for x in self.timeTables:
-            x.events = x.bestSolutionObject
-            sol_list.append(x.solutionValue())
-            print 'Value of timetable', x.solutionValue()
-        self.bestSolution = min(sol_list)
+        self.setBest()
