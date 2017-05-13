@@ -30,8 +30,6 @@ class TimeTable(object):
             self.events[i].timeslot = t
             self.events[i].room = r
 
-
-
     def init(self):
         while True:
             if self.isFeasible():
@@ -307,6 +305,11 @@ class TimeTable(object):
         for i in range(len(state)):
             e = self.events.get(i)
             e.timeslot, e.room = state[i][0], self.rooms.get(state[i][1])
+
+    def reset(self):
+        for e in self.events:
+            e.timeslot = None
+            e.room = None
 
     def randIterImprovement(self):
         sol = self.solutionValue()
