@@ -38,7 +38,7 @@ class Population(object):
             t.init()
             self.states.append(t.getState())
             self.timeTables.append(t)
-            print 'Population', i, 'from', self.populationSize, 'inited!'
+            print 'Population', i + 1, 'of', self.populationSize, 'inited!'
 
     def mutation(self):
         for i in np.random.random_integers(0, self.populationSize - 1, size=self.populationSize / 5):

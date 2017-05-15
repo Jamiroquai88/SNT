@@ -1,0 +1,18 @@
+BUT FIT SNT Semestral Project
+
+University Course Timetabling Problem
+
+
+RUN:
+	./main.py -i INPUT_FILE -o OUTPUT_FILE
+
+	Expected .tim format on input and .sln as output.
+
+CHECK SLN:
+	./checksln DATASET
+
+DIRECTORY STRUCTURE
+        ./main.py 	- main application
+        ./Makefile 	- Makefile for checksln
+	./datasets/ 	- directory with datasets and best solutions
+	./src/		- directory with sources		
